@@ -1,14 +1,16 @@
 #!/bin/bash
 
 if [  $# -lt 1 ]; then 
-  echo "Usage: $0 <IP>"
+  echo "Usage: $0 <IP> <USER>"
   exit 1
 fi 
 
 WGET=/usr/local/bin/wget
 FRITZ_IP=$1
-FRITZ_USER=""
-FRITZ_IFACE="1-lan"
+FRITZ_USER=$2
+#FRITZ_IFACE="1-lan"
+# This is the WAN interface
+FRITZ_IFACE="2-0"
 
 SIDFILE="/tmp/fritz.sid"
 
@@ -24,6 +26,7 @@ if [ $NOTCONNECTED -gt 0 ]; then
   read -s -p "Enter Router Password: " FRITZ_PWD
   echo ""
 
+  # Request challenge token from Fritz!Box
   CHALLENGE=$(curl -s http://$FRITZ_IP/login_sid.lua |  grep -o "<Challenge>[a-z0-9]\{8\}" | cut -d'>' -f 2)
   HASH=$(perl -MPOSIX -e '
     use Digest::MD5 "md5_hex";
@@ -37,11 +40,12 @@ fi
 
 SID=$(cat $SIDFILE)
 
+# Check for successfull authentification
 if [ "$SID" == "0000000000000000" ]; then
   echo "Authentication error" 1>&2
   exit 1
 fi
 
-echo "Capturing traffic.." 1>&2 
+echo "Capturing traffic on Fritz!Box interface $IFACE ..." 1>&2
 
-$WGET -qO- http://$FRITZ_IP/cgi-bin/capture_notimeout?ifaceorminor=$FRITZ_IFACE\&snaplen=\&capture=Start\&sid=$SID | tshark -i -
+$WGET -qO- http://$FRITZ_IP/cgi-bin/capture_notimeout?ifaceorminor=$FRITZ_IFACE\&snaplen=\&capture=Start\&sid=$SID > fritzdump.sh
